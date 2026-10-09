@@ -1,70 +1,47 @@
 import threading
-from reachy_mini import ReachyMini, ReachyMiniApp
-from reachy_mini.utils import create_head_pose
-import numpy as np
 import time
-from pydantic import BaseModel
+
+import numpy as np
+from reachy_mini import ReachyMini, ReachyMiniApp
+from reachy_mini.reachy_mini import INIT_HEAD_POSE
+
+
+# Idle antenna sway
+ANTENNA_SWAY_AMP_DEG = 15.0
+ANTENNA_SWAY_FREQ_HZ = 0.3
+
+# Streaming control loop rate.
+LOOP_HZ = 50
 
 
 class EmbodiedFo(ReachyMiniApp):
-    # Optional: URL to a custom configuration page for the app
-    # eg. "http://localhost:8042"
-    custom_app_url: str | None = "http://0.0.0.0:8042"
-    # Optional: specify a media backend ("gstreamer", "gstreamer_no_video", "default", etc.)
-    # On the wireless, use gstreamer_no_video to optimise CPU usage if the app does not use video streaming
+    custom_app_url: str | None = None
     request_media_backend: str | None = None
 
     def run(self, reachy_mini: ReachyMini, stop_event: threading.Event):
+        reachy_mini.goto_target(
+            head=INIT_HEAD_POSE,
+            antennas=[0.0, 0.0],
+            duration=1.5,
+        )
+        print("Fo is awake and waiting. Ctrl+C to exit.")
+
         t0 = time.time()
+        dt = 1.0 / LOOP_HZ
+        amp_rad = np.deg2rad(ANTENNA_SWAY_AMP_DEG)
 
-        antennas_enabled = True
-        sound_play_requested = False
-
-        # You can ignore this part if you don't want to add settings to your app. If you set custom_app_url to None, you have to remove this part as well.
-        # === vvv ===
-        class AntennaState(BaseModel):
-            enabled: bool
-
-        @self.settings_app.post("/antennas")
-        def update_antennas_state(state: AntennaState):
-            nonlocal antennas_enabled
-            antennas_enabled = state.enabled
-            return {"antennas_enabled": antennas_enabled}
-
-        @self.settings_app.post("/play_sound")
-        def request_sound_play():
-            nonlocal sound_play_requested
-            sound_play_requested = True
-
-        # === ^^^ ===
-
-        # Main control loop
+        # Continuous idle: head still, antennas swing in phase-opposed cross.
         while not stop_event.is_set():
             t = time.time() - t0
 
-            yaw_deg = 30.0 * np.sin(2.0 * np.pi * 0.2 * t)
-            head_pose = create_head_pose(yaw=yaw_deg, degrees=True)
-
-            if antennas_enabled:
-                amp_deg = 25.0
-                a = amp_deg * np.sin(2.0 * np.pi * 0.5 * t)
-                antennas_deg = np.array([a, -a])
-            else:
-                antennas_deg = np.array([0.0, 0.0])
-
-            if sound_play_requested:
-                print("Playing sound...")
-                reachy_mini.media.play_sound("wake_up.wav")
-                sound_play_requested = False
-
-            antennas_rad = np.deg2rad(antennas_deg)
+            a = amp_rad * np.sin(2.0 * np.pi * ANTENNA_SWAY_FREQ_HZ * t)
 
             reachy_mini.set_target(
-                head=head_pose,
-                antennas=antennas_rad,
+                head=INIT_HEAD_POSE,
+                antennas=[a, -a],
             )
 
-            time.sleep(0.02)
+            time.sleep(dt)
 
 
 if __name__ == "__main__":
