@@ -12,6 +12,9 @@ requires-python = ">=3.10"
 dependencies = [
     "reachy-mini",
     "mcp",
+    "faster-whisper",
+    "sounddevice",
+    "soundfile",
 ]
 keywords = ["reachy-mini-app"]
 

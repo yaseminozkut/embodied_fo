@@ -5,7 +5,9 @@ import numpy as np
 from reachy_mini import ReachyMini, ReachyMiniApp
 from reachy_mini.reachy_mini import INIT_HEAD_POSE
 
-from embodied_fo import fo_client
+from embodied_fo import fo_client, stt
+
+RECORD_SECONDS = 5.0
 
 ANTENNA_SWAY_AMP_DEG = 15.0
 ANTENNA_SWAY_FREQ_HZ = 0.3
@@ -29,26 +31,30 @@ class EmbodiedFo(ReachyMiniApp):
     def run(self, reachy_mini: ReachyMini, stop_event: threading.Event):
         reachy_mini.goto_target(head=INIT_HEAD_POSE, antennas=[0.0, 0.0], duration=1.5)
 
+        print("Loading speech model...")
+        stt.start()
         print("Signing in to Fo...")
         fo_client.start()
-        print("Signed in.\n")
+        print("Ready.\n")
 
         motion = threading.Thread(
             target=self._sway, args=(reachy_mini, stop_event), daemon=True
         )
         motion.start()
 
-        print("Ask Fo anything. Type 'quit' or Ctrl-D to exit.\n")
+        print(f"Press ENTER to speak ({int(RECORD_SECONDS)}s). Ctrl-D to exit.\n")
         try:
             while not stop_event.is_set():
                 try:
-                    text = input("you > ").strip()
+                    input("press ENTER > ")
                 except (EOFError, KeyboardInterrupt):
                     break
-                if text.lower() in {"quit", "exit"}:
-                    break
+                print(f"[recording {int(RECORD_SECONDS)}s...]")
+                text = stt.record_and_transcribe(RECORD_SECONDS)
                 if not text:
+                    print("[nothing heard]\n")
                     continue
+                print(f"you > {text}")
                 try:
                     reply = fo_client.ask_fo(text)
                 except Exception as e:

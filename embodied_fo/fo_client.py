@@ -158,11 +158,14 @@ def ask_fo(message: str) -> str:
 
 def stop() -> None:
     if _stack is not None:
-        asyncio.run_coroutine_threadsafe(_stack.aclose(), _loop).result()
+        try:
+            asyncio.run_coroutine_threadsafe(_stack.aclose(), _loop).result(timeout=5)
+        except Exception:
+            pass
     if _loop is not None:
         _loop.call_soon_threadsafe(_loop.stop)
     if _thread is not None:
-        _thread.join()
+        _thread.join(timeout=5)
 
 
 def sign_out() -> None:
