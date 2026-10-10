@@ -5,7 +5,7 @@ import numpy as np
 from reachy_mini import ReachyMini, ReachyMiniApp
 from reachy_mini.reachy_mini import INIT_HEAD_POSE
 
-from embodied_fo import fo_client, stt
+from embodied_fo import fo_client, stt, tts
 
 RECORD_SECONDS = 5.0
 
@@ -61,6 +61,7 @@ class EmbodiedFo(ReachyMiniApp):
                     print(f"[fo error] {e}\n")
                     continue
                 print(f"fo  > {reply}\n")
+                tts.speak(reply)
         finally:
             stop_event.set()
             motion.join()
