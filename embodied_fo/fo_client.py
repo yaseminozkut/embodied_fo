@@ -142,7 +142,7 @@ async def _ask(message: str) -> str:
     data = _extract_tool_result(await _session.call_tool("ask_fo", payload))
     while data.get("status") == "working":
         data = _extract_tool_result(await _session.call_tool("get_fo_reply", {}))
-    return data.get("reply") or data.get("message") or ""
+    return data.get("response") or data.get("reply") or data.get("message") or ""
 
 
 # Background event loop lets us expose sync start/ask_fo/stop while the
