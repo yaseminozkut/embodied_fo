@@ -8,10 +8,10 @@ from reachy_mini.reachy_mini import INIT_HEAD_POSE
 from embodied_fo import fo_client, stt, tts
 
 RECORD_SECONDS = 5.0
-
-ANTENNA_SWAY_AMP_DEG = 15.0
-ANTENNA_SWAY_FREQ_HZ = 0.3
 LOOP_HZ = 50
+
+IDLE_ANTENNA_AMP_DEG = 15.0
+IDLE_ANTENNA_FREQ_HZ = 0.3
 
 
 class EmbodiedFo(ReachyMiniApp):
@@ -21,10 +21,10 @@ class EmbodiedFo(ReachyMiniApp):
     def _sway(self, reachy_mini: ReachyMini, stop_event: threading.Event) -> None:
         t0 = time.time()
         dt = 1.0 / LOOP_HZ
-        amp_rad = np.deg2rad(ANTENNA_SWAY_AMP_DEG)
+        amp_rad = np.deg2rad(IDLE_ANTENNA_AMP_DEG)
         while not stop_event.is_set():
             t = time.time() - t0
-            a = amp_rad * np.sin(2.0 * np.pi * ANTENNA_SWAY_FREQ_HZ * t)
+            a = amp_rad * np.sin(2.0 * np.pi * IDLE_ANTENNA_FREQ_HZ * t)
             reachy_mini.set_target(head=INIT_HEAD_POSE, antennas=[a, -a])
             time.sleep(dt)
 
@@ -35,6 +35,7 @@ class EmbodiedFo(ReachyMiniApp):
         stt.start()
         print("Signing in to Fo...")
         fo_client.start()
+        reachy_mini.enable_wobbling()
         print("Ready.\n")
 
         motion = threading.Thread(
@@ -61,10 +62,14 @@ class EmbodiedFo(ReachyMiniApp):
                     print(f"[fo error] {e}\n")
                     continue
                 print(f"fo  > {reply}\n")
-                tts.speak(reply)
+                tts.speak(reachy_mini, reply)
         finally:
             stop_event.set()
             motion.join()
+            try:
+                reachy_mini.disable_wobbling()
+            except Exception:
+                pass
             fo_client.stop()
             fo_client.sign_out()
             print("\nSigned out.")
