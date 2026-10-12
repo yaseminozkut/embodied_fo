@@ -106,6 +106,9 @@ def _build_oauth_provider() -> OAuthClientProvider:
 
 
 def _extract_tool_result(result) -> dict:
+    structured = getattr(result, "structured_content", None)
+    if structured:
+        return structured
     for item in result.content:
         text = getattr(item, "text", None)
         if text is None:
@@ -139,7 +142,7 @@ async def _ask(message: str) -> str:
     data = _extract_tool_result(await _session.call_tool("ask_fo", payload))
     while data.get("status") == "working":
         data = _extract_tool_result(await _session.call_tool("get_fo_reply", {}))
-    return data.get("reply", "")
+    return data.get("reply") or data.get("message") or ""
 
 
 # Background event loop lets us expose sync start/ask_fo/stop while the
