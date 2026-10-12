@@ -5,6 +5,7 @@ from pathlib import Path
 
 import edge_tts
 import soundfile as sf
+from gtts import gTTS
 from reachy_mini import ReachyMini
 
 VOICE = "en-US-AvaNeural"
@@ -22,7 +23,11 @@ def speak(reachy_mini: ReachyMini, text: str) -> None:
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
         path = f.name
     try:
-        asyncio.run(_synthesize(text, path))
+        try:
+            asyncio.run(_synthesize(text, path))
+        except Exception as e:
+            print(f"[edge-tts failed ({type(e).__name__}), falling back to gTTS]")
+            gTTS(text, lang="en", tld="com").save(path)
         duration = sf.info(path).duration
         reachy_mini.media.play_sound(path)
         time.sleep(duration + PLAYBACK_TAIL_S)

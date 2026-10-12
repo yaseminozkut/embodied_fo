@@ -16,6 +16,7 @@ dependencies = [
     "sounddevice",
     "soundfile",
     "edge-tts",
+    "gtts",
 ]
 keywords = ["reachy-mini-app"]
 
