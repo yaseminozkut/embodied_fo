@@ -51,7 +51,11 @@ def _audio_cb(indata, frames, time_info, status):
     _frame_q.put(indata[:, 0].copy())
 
 
-def _loop(on_utterance: Callable[[str], None]) -> None:
+def _loop(
+    on_utterance: Callable[[str], None],
+    on_speech_start: Callable[[], None] | None,
+    on_speech_end: Callable[[], None] | None,
+) -> None:
     vad_iter = VADIterator(
         _vad,
         sampling_rate=SAMPLERATE,
@@ -97,7 +101,11 @@ def _loop(on_utterance: Callable[[str], None]) -> None:
             in_speech = True
             utterance = list(pre_roll) + utterance
             pre_roll.clear()
+            if on_speech_start is not None:
+                on_speech_start()
         if event is not None and "end" in event and in_speech:
+            if on_speech_end is not None:
+                on_speech_end()
             audio = np.concatenate(utterance)
             _muted.set()
             try:
@@ -109,7 +117,11 @@ def _loop(on_utterance: Callable[[str], None]) -> None:
                 _muted.clear()
 
 
-def start_listener(on_utterance: Callable[[str], None]) -> None:
+def start_listener(
+    on_utterance: Callable[[str], None],
+    on_speech_start: Callable[[], None] | None = None,
+    on_speech_end: Callable[[], None] | None = None,
+) -> None:
     global _listener, _stream
     _stop.clear()
     _muted.clear()
@@ -121,7 +133,11 @@ def start_listener(on_utterance: Callable[[str], None]) -> None:
         callback=_audio_cb,
     )
     _stream.start()
-    _listener = threading.Thread(target=_loop, args=(on_utterance,), daemon=True)
+    _listener = threading.Thread(
+        target=_loop,
+        args=(on_utterance, on_speech_start, on_speech_end),
+        daemon=True,
+    )
     _listener.start()
 
 
