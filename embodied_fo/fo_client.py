@@ -25,6 +25,18 @@ CLIENT_FILE = CACHE_DIR / "client.json"
 CALLBACK_PORT = 3030
 CALLBACK_URL = f"http://localhost:{CALLBACK_PORT}/callback"
 
+PREAMBLE = (
+    "You are speaking through a robot that plays an emotional animation "
+    "right before each of your replies. "
+    "Prefix every reply with exactly one emotion in square brackets, "
+    "chosen from this list only: [surprised1], [yes1], [welcoming1], "
+    "[success1], [success2], [proud1], [attentive1], [inquiring2], "
+    "[welcoming2], [inquiring3], [cheerful1], [understanding1]. "
+    "Pick whichever best matches the tone of what you are about to say. "
+    "The tag is metadata; the user will not see or hear it. "
+    "Example: [cheerful1] Great news, I found two tickets."
+)
+
 _fresh_conversation = True
 _loop: asyncio.AbstractEventLoop | None = None
 _thread: threading.Thread | None = None
@@ -135,10 +147,14 @@ async def _open_session() -> None:
 
 async def _ask(message: str) -> str:
     global _fresh_conversation
-    payload: dict = {"message": message}
     if _fresh_conversation:
-        payload["newConversation"] = True
+        payload: dict = {
+            "message": f"{PREAMBLE}\n\n{message}",
+            "newConversation": True,
+        }
         _fresh_conversation = False
+    else:
+        payload = {"message": message}
     data = _extract_tool_result(await _session.call_tool("ask_fo", payload))
     while data.get("status") == "working":
         print(f"[fo working] {data}")

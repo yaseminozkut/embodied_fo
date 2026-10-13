@@ -1,4 +1,5 @@
 import random
+import re
 import threading
 import time
 
@@ -15,6 +16,21 @@ RESPOND_EMOTIONS = [
     "proud1", "attentive1", "inquiring2", "welcoming2",
     "inquiring3", "cheerful1", "understanding1",
 ]
+
+_EMOTION_TAG = re.compile(r"^\s*\[([a-z0-9]+)\]\s*", re.IGNORECASE)
+
+
+def _resolve_emotion(reply: str, moves: dict) -> tuple[str, str | None]:
+    match = _EMOTION_TAG.match(reply)
+    if match:
+        reply = reply[match.end():]
+    if not moves:
+        return reply, None
+    if match:
+        tag = match.group(1).lower()
+        if tag in moves:
+            return reply, tag
+    return reply, random.choice(list(moves))
 
 LOOP_HZ = 50
 
@@ -78,10 +94,10 @@ class EmbodiedFo(ReachyMiniApp):
         print("Loading emotion library...")
         try:
             emotions_lib = RecordedMoves(EMOTION_LIBRARY)
-            respond_moves = [(n, emotions_lib.get(n)) for n in RESPOND_EMOTIONS]
+            respond_moves: dict = {n: emotions_lib.get(n) for n in RESPOND_EMOTIONS}
         except Exception as e:
             print(f"[emotions unavailable: {e}]")
-            respond_moves = []
+            respond_moves = {}
         print("Signing in to Fo...")
         fo_client.start()
         reachy_mini.enable_wobbling()
@@ -108,16 +124,16 @@ class EmbodiedFo(ReachyMiniApp):
                 return
             finally:
                 thinking.clear()
-            print(f"fo  > {reply}\n")
-            if respond_moves:
-                name, move = random.choice(respond_moves)
+            spoken_reply, name = _resolve_emotion(reply, respond_moves)
+            print(f"fo  > {spoken_reply}\n")
+            if name is not None:
                 print(f"[emotion] {name}")
                 playing_move.set()
                 try:
-                    reachy_mini.play_move(move)
+                    reachy_mini.play_move(respond_moves[name])
                 finally:
                     playing_move.clear()
-            tts.speak(reachy_mini, reply)
+            tts.speak(reachy_mini, spoken_reply)
 
         stt.start_listener(handle_utterance, on_speech_end=on_speech_end)
 
