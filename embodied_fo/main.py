@@ -7,7 +7,6 @@ from reachy_mini.reachy_mini import INIT_HEAD_POSE
 
 from embodied_fo import fo_client, stt, tts
 
-RECORD_SECONDS = 5.0
 LOOP_HZ = 50
 
 IDLE_ANTENNA_AMP_DEG = 15.0
@@ -36,36 +35,32 @@ class EmbodiedFo(ReachyMiniApp):
         print("Signing in to Fo...")
         fo_client.start()
         reachy_mini.enable_wobbling()
-        print("Ready.\n")
+        print("Ready. Just talk — Ctrl-C to exit.\n")
 
         motion = threading.Thread(
             target=self._sway, args=(reachy_mini, stop_event), daemon=True
         )
         motion.start()
 
-        print(f"Press ENTER to speak ({int(RECORD_SECONDS)}s). Ctrl-D to exit.\n")
+        def handle_utterance(text: str) -> None:
+            print(f"you > {text}")
+            try:
+                reply = fo_client.ask_fo(text)
+            except Exception as e:
+                print(f"[fo error] {e}\n")
+                return
+            print(f"fo  > {reply}\n")
+            tts.speak(reachy_mini, reply)
+
+        stt.start_listener(handle_utterance)
+
         try:
-            while not stop_event.is_set():
-                try:
-                    input("press ENTER > ")
-                except (EOFError, KeyboardInterrupt):
-                    break
-                print(f"[recording {int(RECORD_SECONDS)}s...]")
-                text = stt.record_and_transcribe(RECORD_SECONDS)
-                if not text:
-                    print("[nothing heard]\n")
-                    continue
-                print(f"you > {text}")
-                try:
-                    reply = fo_client.ask_fo(text)
-                except Exception as e:
-                    print(f"[fo error] {e}\n")
-                    continue
-                print(f"fo  > {reply}\n")
-                tts.speak(reachy_mini, reply)
+            while not stop_event.wait(0.5):
+                pass
         finally:
             stop_event.set()
             motion.join()
+            stt.stop()
             try:
                 reachy_mini.disable_wobbling()
             except Exception:

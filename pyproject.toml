@@ -13,6 +13,7 @@ dependencies = [
     "reachy-mini",
     "mcp",
     "faster-whisper",
+    "silero-vad",
     "sounddevice",
     "soundfile",
     "edge-tts",
