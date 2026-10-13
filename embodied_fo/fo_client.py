@@ -141,6 +141,7 @@ async def _ask(message: str) -> str:
         _fresh_conversation = False
     data = _extract_tool_result(await _session.call_tool("ask_fo", payload))
     while data.get("status") == "working":
+        print(f"[fo working] {data}")
         data = _extract_tool_result(await _session.call_tool("get_fo_reply", {}))
     return data.get("response") or data.get("reply") or data.get("message") or ""
 
