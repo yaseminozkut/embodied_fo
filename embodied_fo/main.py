@@ -17,20 +17,26 @@ RESPOND_EMOTIONS = [
     "inquiring3", "cheerful1", "understanding1",
 ]
 
-_EMOTION_TAG = re.compile(r"^\s*\[([a-z0-9]+)\]\s*", re.IGNORECASE)
+_EMOTION_TAG = re.compile(r"\[([a-z0-9]+)\]", re.IGNORECASE)
 
 
-def _resolve_emotion(reply: str, moves: dict) -> tuple[str, str | None]:
-    match = _EMOTION_TAG.match(reply)
-    if match:
-        reply = reply[match.end():]
-    if not moves:
-        return reply, None
-    if match:
-        tag = match.group(1).lower()
-        if tag in moves:
-            return reply, tag
-    return reply, random.choice(list(moves))
+def _parse_segments(reply: str, moves: dict) -> list[tuple[str | None, str]]:
+    segments: list[tuple[str | None, str]] = []
+    pos = 0
+    current: str | None = None
+    for match in _EMOTION_TAG.finditer(reply):
+        chunk = reply[pos:match.start()].strip()
+        if chunk:
+            segments.append((current if current in moves else None, chunk))
+        current = match.group(1).lower()
+        pos = match.end()
+    tail = reply[pos:].strip()
+    if tail:
+        segments.append((current if current in moves else None, tail))
+    if moves and segments and all(name is None for name, _ in segments):
+        name = random.choice(list(moves))
+        segments[0] = (name, segments[0][1])
+    return segments
 
 LOOP_HZ = 50
 
@@ -124,16 +130,18 @@ class EmbodiedFo(ReachyMiniApp):
                 return
             finally:
                 thinking.clear()
-            spoken_reply, name = _resolve_emotion(reply, respond_moves)
-            print(f"fo  > {spoken_reply}\n")
-            if name is not None:
-                print(f"[emotion] {name}")
-                playing_move.set()
-                try:
-                    reachy_mini.play_move(respond_moves[name])
-                finally:
-                    playing_move.clear()
-            tts.speak(reachy_mini, spoken_reply)
+            segments = _parse_segments(reply, respond_moves)
+            print(f"fo  > {' '.join(text for _, text in segments)}\n")
+            futures = [tts.prepare(text) for _, text in segments]
+            for (name, _), audio_future in zip(segments, futures):
+                if name is not None:
+                    print(f"[emotion] {name}")
+                    playing_move.set()
+                    try:
+                        reachy_mini.play_move(respond_moves[name])
+                    finally:
+                        playing_move.clear()
+                tts.play(reachy_mini, audio_future)
 
         stt.start_listener(handle_utterance, on_speech_end=on_speech_end)
 

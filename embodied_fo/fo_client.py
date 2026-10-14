@@ -156,9 +156,10 @@ async def _ask(message: str) -> str:
     else:
         payload = {"message": message}
     data = _extract_tool_result(await _session.call_tool("ask_fo", payload))
+    print(f"[fo ask_fo] status={data.get('status')!r} keys={sorted(data.keys())} data={data}")
     while data.get("status") == "working":
-        print(f"[fo working] {data}")
         data = _extract_tool_result(await _session.call_tool("get_fo_reply", {}))
+        print(f"[fo poll] status={data.get('status')!r} keys={sorted(data.keys())} data={data}")
     return data.get("response") or data.get("reply") or data.get("message") or ""
 
 
