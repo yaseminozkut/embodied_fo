@@ -161,6 +161,7 @@ async def _open_session() -> None:
     )
     _session = await _stack.enter_async_context(ClientSession(read, write))
     await _session.initialize()
+    await _session.list_tools() # to force the OAuth round-trip to complete, otherwise fo gives access without clicking allow button for MCP connection
 
 
 async def _ask(message: str) -> str:
